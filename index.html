@@ -46,33 +46,25 @@
         .metric-card .value { font-size: 1.8em; font-weight: bold; color: var(--accent-yellow); }
         .code-block, .siem-log-viewer, .slack-chat { background-color: var(--text-dark); border: 1px solid #6272a4; border-radius: 8px; padding: 20px; margin-top: 15px; white-space: pre-wrap; word-break: break-all; font-family: 'Consolas', monospace; }
         .learning-note { background-color: var(--text-dark); border-left: 5px solid var(--accent-blue); padding: 20px; border-radius: 8px; margin-top: 30px; }
-
-        /* GÜNCELLENEN KISIM: Ağ Haritası Arka Planı */
-        #network-map-container-2 {
-               position: relative;
-               width: 100%;
-               aspect-ratio: 16 / 9; /* Görseli orantılı yapar */
-               border-radius: 8px;
-               overflow: hidden;
-               background-image: url('ağharitasi.png');
-               background-size: cover; /* Oranı bozmadan sığdırır */
-               background-position: center;
-               background-repeat: no-repeat;
-        }
-        #network-map-container-2::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
+        
+        .scenario-image {
             width: 100%;
-            height: 100%;
-            background-image: url('ağharitasi.png');
-            background-size: cover;
-            background-position: center;
-            background-repeat: no-repeat;
-            opacity: 0.4; /* Resmin opaklığını düşürerek node'ların daha belirgin olmasını sağlar */
-            z-index: 0; /* Resmin en arkada kalmasını sağlar */
+            max-width: 500px;
+            margin: 25px auto;
+            display: block;
+            border-radius: 8px;
+            border: 1px solid var(--interactive-bg);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
         }
+
+        #network-map-container-2 {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 16 / 9;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
         .network-node {
             position: absolute;
             width: 30px;
@@ -85,14 +77,13 @@
             font-weight: bold;
             color: white;
             cursor: help;
-            z-index: 1; /* Node'ların resmin üzerinde kalmasını sağlar */
+            z-index: 10;
             border: 2px solid white;
             text-shadow: 0 0 5px black;
         }
         .network-node.infected { background-color: var(--accent-red); animation: pulse 1s infinite alternate; }
         .network-node.isolated { background-color: var(--accent-yellow); color: var(--text-dark); border-color: var(--text-dark); animation: none; }
         @keyframes pulse { from { transform: scale(1); } to { transform: scale(1.1); } }
-
     </style>
 </head>
 <body>
@@ -126,7 +117,6 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
     <script>
-        // ... (JavaScript kodunun tamamı önceki versiyonla aynı, herhangi bir değişiklik gerekmiyor)
         document.addEventListener('DOMContentLoaded', () => {
             const game = {
                 score: { affectedSystems: 1, financialLoss: 0, dataLoss: 0, reputation: 100 },
@@ -161,6 +151,7 @@
                         this.elements.intro.style.display = 'none';
                         this.elements.game.style.display = 'block';
                         this.showSection(1);
+                        this.updateState(); // İlk durumu yüklemek için
                     });
                     this.elements.gameContent.addEventListener('click', (e) => {
                         const button = e.target.closest('.btn[data-decision]');
@@ -236,40 +227,94 @@
                 },
 
                 updateState() { this.updateStatusBar(); this.updateNetworkMap(); this.updateSiemLogs(); },
-                updateNetworkMap() { if(!this.elements.nodes) return; Object.keys(this.elements.nodes).forEach(nodeName => { const nodeEl = this.elements.nodes[nodeName]; if (nodeEl) { nodeEl.className = 'network-node'; if (this.state.isolated.includes(nodeName)) nodeEl.classList.add('isolated'); else if (this.state.infected.includes(nodeName)) nodeEl.classList.add('infected'); } }); },
-                updateSiemLogs() { if (!this.elements.siemLogs2) return; let html = ''; if (this.state.infected.includes('fs')) html += `<div><span style="color:var(--accent-red); font-weight:bold;">[10:05:11] KRİTİK: FileServer üzerinde Mimikatz (kimlik bilgisi çalma) aktivitesi!</span></div>`; if (this.state.infected.includes('db')) html += `<div><span style="color:var(--accent-red); font-weight:bold;">[10:15:40] KRİTİK: DB-Server üzerinde anormal dosya şifreleme aktivitesi!</span></div>`; if (html === '') html = `<div>[10:00:00] Ağ trafiği normal görünüyor.</div>`; this.elements.siemLogs2.innerHTML = html; },
+                updateNetworkMap() { /* Bu fonksiyon interaktif node'lar için, şu an kullanılmıyor */ },
+                
+                // GÜNCELLENEN FONKSİYON
+                updateSiemLogs() {
+                    if (!this.elements.siemLogs2) return;
+                    
+                    // Temel log her zaman görünür
+                    let html = `<div><span style="color:var(--accent-yellow);">[09:45:12] UYARI: HR-PC-ELIF (192.168.1.112) üzerinden anormal PowerShell aktivitesi.</span></div>`;
+
+                    // Duruma göre ek loglar
+                    if (this.state.infected.includes('fs')) {
+                        html += `<div><span style="color:var(--accent-red); font-weight:bold;">[10:05:11] KRİTİK: FileServer (192.168.1.50) üzerinde Mimikatz (kimlik bilgisi çalma) aktivitesi!</span></div>`;
+                    }
+                    if (this.state.infected.includes('db')) {
+                        html += `<div><span style="color:var(--accent-red); font-weight:bold;">[10:15:40] KRİTİK: DB-Server (192.168.1.70) üzerinde anormal dosya şifreleme aktivitesi!</span></div>`;
+                    }
+
+                    // Eğer yeni bir kritik olay yoksa, bilgilendirme mesajı ekle
+                    if (!this.state.infected.includes('fs') && !this.state.infected.includes('db')) {
+                         html += `<div><span style="color:var(--accent-green);">[10:00:00] Sunucu ağında şimdilik başka bir şüpheli aktivite yok.</span></div>`;
+                    }
+                    this.elements.siemLogs2.innerHTML = html;
+                },
 
                 loadGameHTML() {
                     const gameHTMLContent = `
                         <div id="section1" class="section">
-                            <h2><i class="fa-solid fa-envelope-open-text"></i> Bölüm 1: Beklenmedik Misafir</h2>
-                            <p>İnsan Kaynakları departmanından Elif Hanım, "CV_Ozgecmis.docx" isimli bir e-posta ekini açar. Dosyanın zararsız göründüğünü ancak bilgisayarının yavaşladığını rapor eder.</p>
-                            <div class="interactive-element"><h4><i class="fa-solid fa-file-waveform"></i> İlk Bulgular</h4><p>E-posta ve dosya analizi, belgenin içinde gizlenmiş şifreli bir PowerShell komutu çalıştırdığını ortaya çıkardı.</p><div class="code-block"><pre><code class="language-powershell">powershell.exe -NoP -NonI -Exec Bypass -EncodedCommand JABjAGwAaQBlAG4AdA....</code></pre></div></div>
-                            <div class="decision-buttons"><button class="btn critical" data-decision="s1-isolate" data-next="2"><i class="fa-solid fa-person-running"></i><div class="btn-text">Seçenek A: Elif Hanım'ın bilgisayarını hemen ağdan izole et.<small>Anında müdahale, yayılımı önleyebilir.</small></div></button><button class="btn" data-decision="s1-observe" data-next="2"><i class="fa-solid fa-magnifying-glass"></i><div class="btn-text">Seçenek B: Daha fazla kanıt toplamak için şüpheli aktiviteyi izle.<small>Emin olmadan aksiyon almak işleri durdurabilir.</small></div></button></div>
-                            <div class="learning-note"><strong>Öğrenme Notu:</strong> Oltalama (phishing) e-postaları, fidye yazılımlarının en yaygın başlangıç noktasıdır. Hızlı izolasyon, yanal hareketleri önlemenin anahtarıdır.</div>
+                            <div id="s1-part1">
+                                <h2><i class="fa-solid fa-envelope-open-text"></i> Bölüm 1: Beklenmedik Misafir</h2>
+                                <p>İnsan Kaynakları departmanından Elif Hanım, "CV_Ozgecmis.docx" isimli bir e-posta ekini açar. Dosyanın zararsız göründüğünü ancak bilgisayarının yavaşladığını rapor eder.</p>
+                                <img src="elif_eposta.png" alt="E-posta açan çalışan" class="scenario-image">
+                                <button class="btn btn-continue" style="margin: 20px auto 0;" onclick="document.getElementById('s1-part1').style.display='none'; document.getElementById('s1-part2').style.display='block';"><i class="fa-solid fa-arrow-right"></i> Analize Başla</button>
+                            </div>
+                            <div id="s1-part2" style="display:none; animation: fadeIn 0.5s ease-out;">
+                                 <div class="interactive-element"><h4><i class="fa-solid fa-file-waveform"></i> İlk Bulgular</h4>
+                                    <p>E-posta ve dosya analizi, belgenin içinde gizlenmiş şifreli bir PowerShell komutu çalıştırdığını ortaya çıkardı.</p>
+                                    <img src="ilk_bulgular.png" alt="Zararlı kod analizi" class="scenario-image">
+                                    <div class="code-block"><pre><code class="language-powershell">powershell.exe -NoP -NonI -Exec Bypass -EncodedCommand JABjAGwAaQBlAG4AdA....</code></pre></div>
+                                </div>
+                                <div class="decision-buttons">
+                                    <button class="btn critical" data-decision="s1-isolate" data-next="2"><i class="fa-solid fa-person-running"></i><div class="btn-text">Seçenek A: Elif Hanım'ın bilgisayarını hemen ağdan izole et.<small>Anında müdahale, yayılımı önleyebilir.</small></div></button>
+                                    <button class="btn" data-decision="s1-observe" data-next="2"><i class="fa-solid fa-magnifying-glass"></i><div class="btn-text">Seçenek B: Daha fazla kanıt toplamak için şüpheli aktiviteyi izle.<small>Emin olmadan aksiyon almak işleri durdurabilir.</small></div></button>
+                                </div>
+                                <div class="learning-note"><strong>Öğrenme Notu:</strong> Oltalama (phishing) e-postaları, fidye yazılımlarının en yaygın başlangıç noktasıdır. Hızlı izolasyon, yanal hareketleri önlemenin anahtarıdır.</div>
+                            </div>
                         </div>
+                        
                         <div id="section2" class="section">
                             <h2><i class="fa-solid fa-network-wired"></i> Bölüm 2: Zincirleme Reaksiyon</h2>
                             <p>Zararlı yazılım, ağda yayılmaya başladı. Saldırganlar, ele geçirdikleri kimlik bilgileriyle sunucular arasında hareket ediyor.</p>
-                            <div class="interactive-element"><h4><i class="fa-solid fa-map-location-dot"></i> Ağ Haritası</h4><div class="network-map-container" id="network-map-container-2"></div></div>
+                            <div class="interactive-element">
+                                <h4><i class="fa-solid fa-map-location-dot"></i> Ağ Haritası</h4>
+                                <div id="network-map-container-2">
+                                    <img src="network_map_bg.png" alt="Ağ Haritası" style="width: 100%; height: 100%; position: absolute; top: 0; left: 0; z-index: 1; opacity: 0.4;">
+                                    </div>
+                            </div>
                             <div class="interactive-element"><h4><i class="fa-solid fa-terminal"></i> SIEM Logları</h4><div class="siem-log-viewer" id="siemLogs2"></div></div>
-                            <div class="decision-buttons"><button class="btn" data-decision="s2-segment" data-next="3"><i class="fa-solid fa-diagram-project"></i><div class="btn-text">Seçenek A: Kritik sunucuları ağdan ayırarak izole et.<small>Hasarı sınırlar ama karmaşık bir işlemdir.</small></div></button><button class="btn" data-decision="s2-shutdown" data-next="3"><i class="fa-solid fa-power-off"></i><div class="btn-text">Seçenek B: Yayılımı tamamen durdurmak için etkilenen tüm sunucuları kapat.<small>Etkili ama operasyonları tamamen durdurur.</small></div></button></div>
+                            <div class="decision-buttons">
+                                <button class="btn" data-decision="s2-segment" data-next="3"><i class="fa-solid fa-diagram-project"></i><div class="btn-text">Seçenek A: Kritik sunucuları ağdan ayırarak izole et.<small>Hasarı sınırlar ama karmaşık bir işlemdir.</small></div></button>
+                                <button class="btn" data-decision="s2-shutdown" data-next="3"><i class="fa-solid fa-power-off"></i><div class="btn-text">Seçenek B: Yayılımı tamamen durdurmak için etkilenen tüm sunucuları kapat.<small>Etkili ama operasyonları tamamen durdurur.</small></div></button>
+                            </div>
                             <div class="learning-note"><strong>Öğrenme Notu:</strong> Ağ segmentasyonu, bir saldırganın ağın tamamına erişmesini engelleyen kritik bir savunma mekanizmasıdır.</div>
                         </div>
+                        
                         <div id="section3" class="section">
                             <h2><i class="fa-solid fa-users-viewfinder"></i> Bölüm 3: Kriz Masası ve Fidye Notu</h2>
                             <p>Dosyalar şifrelenmeye başladı ve sunucularda bir fidye notu belirdi. Saldırganlar 5 Milyon TL talep ediyor ve verileri sızdırmakla tehdit ediyor. Yönetim panik içinde.</p>
+                             <img src="yonetim_toplantisi.png" alt="Kriz masası toplantısı" class="scenario-image">
                             <div class="interactive-element"><h4><i class="fa-solid fa-comments"></i> Yönetim Acil Durum Kanalı</h4><div class="slack-chat"><div><span style="font-weight:bold; color:var(--accent-pink);">CEO:</span> İtibarımız mahvolacak! Müşteri verileri güvende mi? Bu krizi hemen bitirin!</div><div style="margin-top: 10px;"><span style="font-weight:bold; color:var(--accent-yellow);">CFO:</span> 5 Milyon TL! Bu parayı ödersek iflas ederiz. Yedeklerimizden dönemiyor muyuz?</div><div style="margin-top: 10px;"><span style="font-weight:bold; color:var(--accent-blue);">Hukuk Müşaviri:</span> Fidyeyi ödemek yasa dışı faaliyetleri finanse etmek anlamına gelebilir ve yasal sonuçları olabilir.</div></div></div>
-                            <div class="decision-buttons"><button class="btn" data-decision="s3-restore" data-next="4"><i class="fa-solid fa-clock-rotate-left"></i><div class="btn-text">Seçenek A: Fidyeyi ödeme. Bir hafta eski olan temiz yedeklerden dön.<small>Veri kaybı yaşanır ama suçlulara para gitmez.</small></div></button><button class="btn critical" data-decision="s3-pay" data-next="4"><i class="fa-solid fa-money-bill-wave"></i><div class="btn-text">Seçenek B: Şirketin geleceğini riske atma, fidyeyi öde.<small>Hızlı çözüm olabilir ama garantisi yok ve çok maliyetli.</small></div></button></div>
+                            <div class="decision-buttons">
+                                <button class="btn" data-decision="s3-restore" data-next="4"><i class="fa-solid fa-clock-rotate-left"></i><div class="btn-text">Seçenek A: Fidyeyi ödeme. Bir hafta eski olan temiz yedeklerden dön.<small>Veri kaybı yaşanır ama suçlulara para gitmez.</small></div></button>
+                                <button class="btn critical" data-decision="s3-pay" data-next="4"><i class="fa-solid fa-money-bill-wave"></i><div class="btn-text">Seçenek B: Şirketin geleceğini riske atma, fidyeyi öde.<small>Hızlı çözüm olabilir ama garantisi yok ve çok maliyetli.</small></div></button>
+                            </div>
                             <div class="learning-note"><strong>Öğrenme Notu:</strong> Fidye ödeme kararı sadece teknik bir karar değildir. Finansal, yasal ve etik boyutları vardır.</div>
                         </div>
+                        
                         <div id="section4" class="section">
                             <h2><i class="fa-solid fa-user-secret"></i> Bölüm 4: Gizli Tehdit: Veri Sızıntısı</h2>
                             <p>Ekibiniz şifrelenmiş dosyalarla uğraşırken, tehdit avı araçları daha sinsi bir tehlikeyi ortaya çıkardı: Saldırganlar bir yandan dosyaları şifrelerken, diğer yandan da müşteri veritabanından dışarıya aktif olarak veri sızdırıyor (Çifte Şantaj)!</p>
+                            <img src="siem_ekrani.png" alt="SIEM log ekranı" class="scenario-image">
                             <div class="interactive-element"><h4><i class="fa-solid fa-terminal"></i> SIEM Logları</h4><div class="siem-log-viewer"><div style="color:var(--accent-red); font-weight: bold;">[11:45:10] KRİTİK: DB-Server (192.168.1.70) üzerinden bilinmeyen bir dış IP'ye (81.25.11.92) şifreli ve sürekli veri akışı tespit edildi!</div></div></div>
-                            <div class="decision-buttons"><button class="btn critical" data-decision="s4-cut" data-next="5"><i class="fa-solid fa-scissors"></i><div class="btn-text">Seçenek A: Veri sızıntısını hemen durdurmak için sunucunun dış ağ bağlantısını kes.<small>Kanamayı durdurur ama sunucuyu tamamen çevrimdışı bırakır.</small></div></button><button class="btn" data-decision="s4-honeypot" data-next="5"><i class="fa-solid fa-hat-cowboy-side"></i><div class="btn-text">Seçenek B: Saldırganı yanıltmak ve ne çaldığını anlamak için bağlantıyı bir tuzak (honeypot) sisteme yönlendir.<small>Değerli bilgi sağlar ama riskli ve zaman alıcıdır.</small></div></button></div>
+                            <div class="decision-buttons">
+                                <button class="btn critical" data-decision="s4-cut" data-next="5"><i class="fa-solid fa-scissors"></i><div class="btn-text">Seçenek A: Veri sızıntısını hemen durdurmak için sunucunun dış ağ bağlantısını kes.<small>Kanamayı durdurur ama sunucuyu tamamen çevrimdışı bırakır.</small></div></button>
+                                <button class="btn" data-decision="s4-honeypot" data-next="5"><i class="fa-solid fa-hat-cowboy-side"></i><div class="btn-text">Seçenek B: Saldırganı yanıltmak ve ne çaldığını anlamak için bağlantıyı bir tuzak (honeypot) sisteme yönlendir.<small>Değerli bilgi sağlar ama riskli ve zaman alıcıdır.</small></div></button>
+                            </div>
                             <div class="learning-note"><strong>Öğrenme Notu:</strong> Modern fidye yazılımı saldırıları genellikle "çifte şantaj" taktiği kullanır.</div>
                         </div>
+
                         <div id="section5" class="section">
                             <h2><i class="fa-solid fa-file-invoice-dollar"></i> Sonuç Raporu</h2>
                             <p>Kriz sona erdi. Aldığınız kararlar doğrultusunda şirketin nihai durumu aşağıdadır:</p>
@@ -283,11 +328,6 @@
                     this.elements.sections = this.elements.gameContent.querySelectorAll('.section');
                     this.elements.finalMetrics = { affectedSystems: document.getElementById('affectedSystems'), financialLoss: document.getElementById('financialLoss'), dataLoss: document.getElementById('dataLoss'), reputation: document.getElementById('reputation') };
                     this.elements.outcomeTitle = document.getElementById('outcome-title');
-                    const mapContainer = document.getElementById('network-map-container-2');
-                    if(mapContainer) {
-                         this.elements.nodes = { hr: document.getElementById('node-hr'), fs: document.getElementById('node-fs'), db: document.getElementById('node-db'), bk: document.getElementById('node-bk') };
-                         this.updateNetworkMap();
-                    }
                     this.elements.siemLogs2 = document.getElementById('siemLogs2');
                     hljs.highlightAll();
                 }
